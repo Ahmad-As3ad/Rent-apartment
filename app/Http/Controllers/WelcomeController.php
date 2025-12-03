@@ -9,7 +9,7 @@ class WelcomeController extends Controller
     public function welcome()
     {
 
-return 'welcome to api';
+return 'welcome ';
     }
     //
 
