@@ -13,5 +13,8 @@ echo "hello";
 
 
 }
+public function setore(){
+    echo "helloooo";
+}
     }
 

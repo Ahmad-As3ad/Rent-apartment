@@ -11,6 +11,9 @@ class WelcomeController extends Controller
 
 return 'welcome to api';
     }
+    public function wllle(){
+        echo "hellooo";
+    }
     //
 
 
