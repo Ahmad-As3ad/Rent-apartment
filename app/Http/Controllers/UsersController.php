@@ -20,5 +20,9 @@ public function owaes (){
 
     echo "owaes am al jameh";//اويس عم الجميع
 }
+public function owasss(){
+echo "owaesss";
+
+}
 }
 
