@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 
 class UsersController extends Controller
 {
-
+public function owaee(){
+    echo "hohgo";
+}
 
 
 public function owaesxx (){
