@@ -6,26 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('verifications', function (Blueprint $table) {
+        Schema::create('otp_verifications', function (Blueprint $table) {
             $table->id();
             $table->string('phone_number');
             $table->string('otp_code');
             $table->timestamp('expires_at');
             $table->timestamp('verified_at')->nullable();
             $table->timestamps();
+
+            $table->index(['phone_number', 'otp_code']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('verifications');
+        Schema::dropIfExists('otp_verifications');
     }
 };
