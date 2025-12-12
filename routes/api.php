@@ -1,19 +1,22 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
 
-Route::post('send-otp', [AuthController::class, 'sendOTP']);
-Route::post('verify-otp', [AuthController::class, 'verifyOTP']);
+// مسارات المصادقة العامة
+Route::post('register', [AuthController::class, 'register']);
+Route::post('login', [AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+// مسارات تتطلب مصادقة
+Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::get('user', [AuthController::class, 'user']);
 
-    Route::get('profile', [ProfileController::class, 'getProfile']);
     Route::post('profile/update', [ProfileController::class, 'updateProfile']);
 
+    // مسارات تتطلب موافقة الإدارة
     Route::middleware('user.status')->group(function () {
-        // coming soon
+        // سيتم إضافتها لاحقاً
     });
 });

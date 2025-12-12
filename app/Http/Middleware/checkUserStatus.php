@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 class CheckUserStatus
 {
+
     public function handle(Request $request, Closure $next)
     {
         $user = $request->user();
@@ -14,22 +15,19 @@ class CheckUserStatus
         if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => ' Not authorized to enter'
+                'message' => 'Unauthorized access'
             ], 401);
         }
-
         if ($user->status === 'pending') {
             return response()->json([
                 'success' => false,
-                'message' => ' Your account is under review by the administration'
+                'message' => 'Your account is under review by administration'
             ], 403);
         }
-
         if ($user->status === 'rejected') {
             return response()->json([
                 'success' => false,
-                'message' => ' Your account has been rejected by the administrationYour account has been rejected by the administration
-'
+                'message' => 'Your account has been rejected by administration'
             ], 403);
         }
 
@@ -39,7 +37,7 @@ class CheckUserStatus
 
         return response()->json([
             'success' => false,
-            'message' => ' Your account status is unknown'
+            'message' => 'Your account status is unknown'
         ], 403);
     }
 }

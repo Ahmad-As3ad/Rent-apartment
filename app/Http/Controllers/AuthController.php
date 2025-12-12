@@ -2,96 +2,157 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\SendOTPRequest;
-use App\Http\Requests\VerifyOTPRequest;
-use App\Models\Verification;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
 
-    public function sendOTP(SendOTPRequest $request)
+    public function register(Request $request)
     {
-        $validated = $request->validated();
-        $phoneNumber = $validated['phone_number'];
+        try {
+            $validated = $request->validate([
+                'phone_number' => 'required|string|digits:10|starts_with:09|unique:users',
+                'user_type' => 'required|in:owner,tenant'
+            ]);
 
-        $otp = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            $user = User::create([
+                'phone_number' => $validated['phone_number'],
+                'user_type' => $validated['user_type'],
+                'phone_verified_at' => now(),
+                'status' => 'pending'
+            ]);
 
-        Verification::where('phone_number', $phoneNumber)->delete();
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        Verification::create([
-            'phone_number' => $phoneNumber,
-            'otp_code' => $otp,
-            'expires_at' => now()->addMinutes(15)
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'phone_number' => $user->phone_number,
+                        'user_type' => $user->user_type,
+                        'status' => $user->status,
+                        'is_profile_complete' => false,
+                        'is_approved' => false
+                    ],
+                    'token' => $token,
+                    'token_type' => 'Bearer'
+                ]
+            ]);
 
-        Log::info("OTP لـ {$phoneNumber}: {$otp}");
-
-        return response()->json([
-            'success' => true,
-            'message' => ' The code has been sent successfully'
-        ]);
-    }
-
-    public function verifyOTP(VerifyOTPRequest $request)
-    {
-        $validated = $request->validated();
-        $phoneNumber = $validated['phone_number'];
-        $otpCode = $validated['otp_code'];
-
-        $otpRecord = Verification::where('phone_number', $phoneNumber)
-            ->where('otp_code', $otpCode)
-            ->first();
-
-        if (!$otpRecord || $otpRecord->expires_at < now() || $otpRecord->verified_at) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => ' The verification code is invalid or expired'
-            ], 401);
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during registration'
+            ], 500);
         }
+    }
 
-        $otpRecord->update(['verified_at' => now()]);
 
-        $user = User::firstOrCreate(
-            ['phone_number' => $phoneNumber],
-            [
-                'phone_verified_at' => now(),
-                'user_type' => $request->user_type ?? 'tenant'
-            ]
-        );
+    public function login(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'phone_number' => 'required|string|digits:10|starts_with:09'
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $user = User::where('phone_number', $validated['phone_number'])->first();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phone number not registered'
+                ], 404);
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'phone_number' => $user->phone_number,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'profile_picture' => $user->profile_picture ? url('storage/' . $user->profile_picture) : null,
+                        'date_of_birth' => $user->date_of_birth,
+                        'user_type' => $user->user_type,
+                        'status' => $user->status,
+                        'is_profile_complete' => $user->profile_completed_at !== null,
+                        'is_approved' => $user->status === 'approved'
+                    ],
+                    'token' => $token,
+                    'token_type' => 'Bearer'
+                ]
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during login'
+            ], 500);
+        }
+    }
+
+
+    public function logout(Request $request)
+    {
+        try {
+
+            $request->user()->currentAccessToken()->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during logout'
+            ], 500);
+        }
+    }
+
+    public function user(Request $request)
+    {
+        $user = $request->user();
 
         return response()->json([
             'success' => true,
-            'message' => ' You have been logged in successfully',
             'data' => [
                 'user' => [
                     'id' => $user->id,
                     'phone_number' => $user->phone_number,
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
+                    'profile_picture' => $user->profile_picture ? url('storage/' . $user->profile_picture) : null,
+                    'date_of_birth' => $user->date_of_birth,
                     'user_type' => $user->user_type,
                     'status' => $user->status,
-                    'is_profile_complete' => $user->isProfileComplete(),
-                    'is_approved' => $user->isApproved()
-                ],
-                'token' => $token,
-                'token_type' => 'Bearer'
+                    'is_profile_complete' => $user->profile_completed_at !== null,
+                    'is_approved' => $user->status === 'approved'
+                ]
             ]
-        ]);
-    }
-
-    public function logout(Request $request)
-    {
-        $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => ' You have successfully logged out'
         ]);
     }
 }
