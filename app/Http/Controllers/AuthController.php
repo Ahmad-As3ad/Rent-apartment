@@ -8,7 +8,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-
+//هون بياخد الرقم ونوع المستخدم وبيتسجل بالداتا وبكون صار فيه يوزر وصار لألو توكن خاص فيه بيميزو عن غيرو
     public function register(Request $request)
     {
         try {
@@ -35,8 +35,8 @@ class AuthController extends Controller
                         'phone_number' => $user->phone_number,
                         'user_type' => $user->user_type,
                         'status' => $user->status,
-                        'is_profile_complete' => false,
-                        'is_approved' => false
+                        'is_profile_complete' => $user->isProfileComplete(),
+                        'is_approved' => $user->status==='approved'
                     ],
                     'token' => $token,
                     'token_type' => 'Bearer'
@@ -58,7 +58,7 @@ class AuthController extends Controller
         }
     }
 
-
+//هون تسجيل الدخول بيتطلب الرقم بس وبيقارنو مع ارقام اليوزرز الموجودين وعلى أساسو بيدخل بيوزرو الصحيح
     public function login(Request $request)
     {
         try {
@@ -90,7 +90,7 @@ class AuthController extends Controller
                         'date_of_birth' => $user->date_of_birth,
                         'user_type' => $user->user_type,
                         'status' => $user->status,
-                        'is_profile_complete' => $user->profile_completed_at !== null,
+                        'is_profile_complete' => $user->isProfileComplete(),
                         'is_approved' => $user->status === 'approved'
                     ],
                     'token' => $token,
