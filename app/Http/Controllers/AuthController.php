@@ -8,7 +8,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-//هون بياخد الرقم ونوع المستخدم وبيتسجل بالداتا وبكون صار فيه يوزر وصار لألو توكن خاص فيه بيميزو عن غيرو
     public function register(Request $request)
     {
         try {
@@ -58,7 +57,6 @@ class AuthController extends Controller
         }
     }
 
-//هون تسجيل الدخول بيتطلب الرقم بس وبيقارنو مع ارقام اليوزرز الموجودين وعلى أساسو بيدخل بيوزرو الصحيح
     public function login(Request $request)
     {
         try {

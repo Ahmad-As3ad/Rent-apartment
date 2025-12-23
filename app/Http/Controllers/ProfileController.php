@@ -15,9 +15,9 @@ class ProfileController extends Controller
             $validated = $request->validate([
                 'first_name' => 'required|string|max:50',
                 'last_name' => 'required|string|max:50',
-                'profile_picture' => 'required|image|mimes:jpeg,png,jpg|max:5120',
+                'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
                 'date_of_birth' => 'required|date|before:-18 years',
-                'id_card_picture' => 'required|image|mimes:jpeg,png,jpg|max:5120'
+                'id_card_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:5120'
             ]);
 
             $user = $request->user();
