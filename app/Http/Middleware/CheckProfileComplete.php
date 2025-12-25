@@ -7,41 +7,39 @@ use Illuminate\Http\Request;
 
 class CheckProfileComplete
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
-     */
     public function handle(Request $request, Closure $next)
     {
         $user = $request->user();
 
-        // If no user, return unauthorized
         if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Not authorized to enter'
             ], 401);
         }
 
-        // Check if profile is complete
-        if (!$user->isProfileComplete()) {
+        if (!$this->isProfileComplete($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Please complete your profile first',
+                'message' =>'You must complete your personal data first',
                 'profile_incomplete' => true,
                 'required_fields' => [
                     'first_name',
                     'last_name',
-                    'profile_picture',
-                    'date_of_birth',
-                    'id_card_picture'
+                    'date_of_birth'
                 ]
             ], 403);
         }
 
         return $next($request);
+    }
+
+
+    private function isProfileComplete($user): bool
+    {
+        return $user->profile_completed_at !== null &&
+               $user->first_name !== null &&
+               $user->last_name !== null &&
+               $user->date_of_birth !== null;
     }
 }

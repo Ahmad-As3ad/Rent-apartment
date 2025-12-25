@@ -34,18 +34,13 @@ class User extends Authenticatable
         'profile_completed_at' => 'datetime',
     ];
 
-  /**
- * Check if profile is complete
- * Profile is complete when all required fields are filled
- */
+
 public function isProfileComplete(): bool
 {
     return $this->profile_completed_at !== null &&
            $this->first_name !== null &&
            $this->last_name !== null &&
-           $this->profile_picture !== null &&
-           $this->date_of_birth !== null &&
-           $this->id_card_picture !== null;
+           $this->date_of_birth !== null;
 }
 
     public function isApproved()
