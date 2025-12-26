@@ -130,16 +130,12 @@ class ApartmentController extends Controller
         }
     }
 
-/**
- * Create a new apartment
- */
+
 public function store(Request $request)
 {
     try {
-        // Get authenticated user
         $user = Auth::user();
 
-        // Check if user exists
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -147,7 +143,6 @@ public function store(Request $request)
             ], 401);
         }
 
-        // Check if user is an owner
         if (!$user->isOwner()) {
             return response()->json([
                 'success' => false,
@@ -160,7 +155,6 @@ if (!$user->canAddApartments()) {
         'message' => 'Your account must be approved by administration to add apartments'
     ], 403);
 }
-        // Check if user profile is complete
         if (!$user->isProfileComplete()) {
             return response()->json([
                 'success' => false,
@@ -169,7 +163,6 @@ if (!$user->canAddApartments()) {
             ], 403);
         }
 
-        // Validate input data
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string|min:50',
@@ -178,11 +171,10 @@ if (!$user->canAddApartments()) {
             'region' => 'required|string|max:100',
             'price_per_night' => 'required|numeric|min:0|max:999999.99',
             'number_of_rooms' => 'required|integer|min:1|max:20',
-            'number_of_bathrooms' => 'required|integer|min:1|max:10', // إضافة عدد الحمامات
-            'area' => 'required|numeric|min:10|max:10000' // إضافة المساحة
+            'number_of_bathrooms' => 'required|integer|min:1|max:10',
+            'area' => 'required|numeric|min:10|max:10000'
         ]);
 
-        // Create apartment with owner_id from authenticated user
         $apartment = Apartment::create([
             'owner_id' => $user->id,
             'title' => $validatedData['title'],
@@ -192,14 +184,13 @@ if (!$user->canAddApartments()) {
             'region' => $validatedData['region'],
             'price_per_night' => $validatedData['price_per_night'],
             'number_of_rooms' => $validatedData['number_of_rooms'],
-            'number_of_bathrooms' => $validatedData['number_of_bathrooms'], // حفظ عدد الحمامات
-            'area' => $validatedData['area'], // حفظ المساحة
+            'number_of_bathrooms' => $validatedData['number_of_bathrooms'],
+            'area' => $validatedData['area'],
             'is_available' => true,
             'approved_by_admin' => false
         ]);
 
-        // Load relationships
-        $apartment->load(['images', 'owner']);
+        $apartment->load(relations: ['images', 'owner']);
 
         return response()->json([
             'success' => true,
@@ -220,15 +211,12 @@ if (!$user->canAddApartments()) {
         ], 500);
     }
 }
-  /**
- * Update an apartment
- */
+
 public function update(Request $request, $id)
 {
     try {
         $user = Auth::user();
 
-        // Find the apartment
         $apartment = Apartment::find($id);
 
         if (!$apartment) {
@@ -238,7 +226,6 @@ public function update(Request $request, $id)
             ], 404);
         }
 
-        // Check if user is authorized to update this apartment
         if (!$apartment->isOwnedBy($user->id)) {
             return response()->json([
                 'success' => false,
@@ -246,7 +233,6 @@ public function update(Request $request, $id)
             ], 403);
         }
 
-        // Validate input data
         $validatedData = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'description' => 'sometimes|required|string|min:50',
@@ -255,20 +241,18 @@ public function update(Request $request, $id)
             'region' => 'sometimes|required|string|max:100',
             'price_per_night' => 'sometimes|required|numeric|min:0|max:999999.99',
             'number_of_rooms' => 'sometimes|required|integer|min:1|max:20',
-            'number_of_bathrooms' => 'sometimes|required|integer|min:1|max:10', // إضافة
-            'area' => 'sometimes|required|numeric|min:10|max:10000', // إضافة
+            'number_of_bathrooms' => 'sometimes|required|integer|min:1|max:10',
+            'area' => 'sometimes|required|numeric|min:10|max:10000',
             'is_available' => 'sometimes|boolean'
         ]);
 
-        // Update apartment data
         $apartment->update($validatedData);
 
-        // Reset admin approval if data was changed
         if ($apartment->wasChanged() && $apartment->approved_by_admin) {
             $apartment->update(['approved_by_admin' => false]);
         }
 
-        // Load relationships
+
         $apartment->load(['images', 'owner']);
 
         return response()->json([

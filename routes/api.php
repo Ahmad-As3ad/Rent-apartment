@@ -36,10 +36,8 @@ Route::middleware(['auth:sanctum', 'user.status', 'profile.complete'])->group(fu
         Route::delete('/{id}', [ApartmentController::class, 'destroy']);
     });
 });
-// في routes/api.php
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
 
-    // إدارة المستخدمين
     Route::prefix('users')->group(function () {
         Route::get('/', [AdminController::class, 'getUsersForReview']);
         Route::get('/{id}', [AdminController::class, 'getUserDetails']);
@@ -48,7 +46,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::post('/{id}/suspend', [AdminController::class, 'suspendUser']);
     });
 
-    // إدارة الشقق
     Route::prefix('apartments')->group(function () {
         Route::get('/pending', [AdminController::class, 'manageApartments']);
         Route::post('/{id}/approve', [AdminController::class, 'approveApartment']);

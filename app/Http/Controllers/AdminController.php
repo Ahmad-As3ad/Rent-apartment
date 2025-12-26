@@ -9,17 +9,12 @@ use Illuminate\Validation\ValidationException;
 
 class AdminController extends Controller
 {
-    /**
-     * Middleware للتحقق من أن المستخدم مدير
-     */
+
     public function __construct()
     {
-        // سنضيف middleware لاحقاً
     }
 
-    /**
-     * عرض قائمة المستخدمين للمراجعة
-     */
+
     public function getUsersForReview(Request $request)
     {
         try {
@@ -28,12 +23,10 @@ class AdminController extends Controller
             $query = User::with(['reviewer'])
                 ->latest();
 
-            // فلترة حسب النوع
             if ($request->has('user_type')) {
                 $query->where('user_type', $request->user_type);
             }
 
-            // فلترة حسب الحالة
             if ($request->has('status')) {
                 $query->where('status', $request->status);
             }
@@ -63,10 +56,6 @@ class AdminController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * عرض تفاصيل مستخدم للمراجعة
-     */
     public function getUserDetails($id)
     {
         try {
@@ -93,9 +82,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * الموافقة على مستخدم
-     */
+
     public function approveUser(Request $request, $id)
     {
         try {
@@ -147,9 +134,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * رفض مستخدم
-     */
+
     public function rejectUser(Request $request, $id)
     {
         try {
@@ -202,9 +187,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * تعليق مستخدم
-     */
+
     public function suspendUser(Request $request, $id)
     {
         try {
@@ -252,9 +235,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * إدارة الشقق (الموافقة/الرفض)
-     */
     public function manageApartments(Request $request)
     {
         try {
@@ -290,9 +270,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * الموافقة على شقة
-     */
+
     public function approveApartment(Request $request, $id)
     {
         try {
@@ -335,9 +313,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * رفض شقة
-     */
+
     public function rejectApartment(Request $request, $id)
     {
         try {
@@ -381,9 +357,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * تحويل بيانات المستخدم للمدير
-     */
     private function transformUserForAdmin($user, $fullDetails = false)
     {
         $data = [
@@ -422,9 +395,7 @@ class AdminController extends Controller
         return $data;
     }
 
-    /**
-     * تحويل بيانات الشقة للمدير
-     */
+
     private function transformApartmentForAdmin($apartment)
     {
         return [
