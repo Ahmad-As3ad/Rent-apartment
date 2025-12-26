@@ -8,129 +8,169 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'phone_number' => 'required|string|digits:10|starts_with:09|unique:users',
-                'user_type' => 'required|in:owner,tenant'
-            ]);
+public function register(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'phone_number' => 'required|string|digits:10|starts_with:09|unique:users',
+            'user_type' => 'required|in:owner,tenant',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
 
-            $user = User::create([
-                'phone_number' => $validated['phone_number'],
-                'user_type' => $validated['user_type'],
-                'phone_verified_at' => now(),
-                'status' => 'pending'
-            ]);
+        $user = User::create([
+            'phone_number' => $validated['phone_number'],
+            'user_type' => $validated['user_type'],
+            'password' => $validated['password'],
+            'phone_verified_at' => now(),
+            'status' => 'pending'
+        ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Registration successful',
-                'data' => [
-                    'user' => [
-                        'id' => $user->id,
-                        'phone_number' => $user->phone_number,
-                        'user_type' => $user->user_type,
-                        'status' => $user->status,
-                        'is_profile_complete' => $user->isProfileComplete(),
-                        'is_approved' => $user->status==='approved'
-                    ],
-                    'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
-            ]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'phone_number' => $user->phone_number,
+                    'user_type' => $user->user_type,
+                    'status' => $user->status,
+                    'is_profile_complete' => $user->isProfileComplete(),
+                    'is_approved' => $user->status === 'approved'
+                ],
+                'token' => $token,
+                'token_type' => 'Bearer'
+            ]
+        ]);
 
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors()
-            ], 422);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $e->errors()
+        ], 422);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred during registration'
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred during registration'
+        ], 500);
     }
+}
+ public function login(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'phone_number' => 'required|string|digits:10|starts_with:09',
+            'password' => 'required|string|min:6',
+        ]);
 
-    public function login(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'phone_number' => 'required|string|digits:10|starts_with:09'
-            ]);
+        $user = User::where('phone_number', $validated['phone_number'])->first();
 
-            $user = User::where('phone_number', $validated['phone_number'])->first();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Phone number not registered'
+            ], 404);
+        }
 
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Phone number not registered'
-                ], 404);
+        if ($validated['password'] !== $user->password) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid password'
+            ], 401);
+        }
+
+        if ($user->status !== 'approved') {
+            $message = '';
+            if ($user->status === 'pending') {
+                $message = 'Your account is under review by administration';
+            } elseif ($user->status === 'rejected') {
+                $message = 'Your account has been rejected by administration';
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Login successful',
-                'data' => [
-                    'user' => [
-                        'id' => $user->id,
-                        'phone_number' => $user->phone_number,
-                        'first_name' => $user->first_name,
-                        'last_name' => $user->last_name,
-                        'profile_picture' => $user->profile_picture ? url('storage/' . $user->profile_picture) : null,
-                        'date_of_birth' => $user->date_of_birth,
-                        'user_type' => $user->user_type,
-                        'status' => $user->status,
-                        'is_profile_complete' => $user->isProfileComplete(),
-                        'is_approved' => $user->status === 'approved'
-                    ],
-                    'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
-            ]);
-
-        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors()
-            ], 422);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred during login'
-            ], 500);
+                'message' => $message,
+                'account_status' => $user->status
+            ], 403);
         }
+        if ($user->status !== 'approved') {
+    $message = '';
+    if ($user->status === 'pending') {
+        $message = 'Your account is pending review by administration';
+    } elseif ($user->status === 'rejected') {
+        $message = 'Your account has been rejected by administration';
+    } elseif ($user->status === 'suspended') {
+        $message = 'Your account has been suspended';
     }
+
+    return response()->json([
+        'success' => false,
+        'message' => $message,
+        'account_status' => $user->status
+    ], 403);
+}
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'phone_number' => $user->phone_number,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'profile_picture' => $user->profile_picture ? url('storage/' . $user->profile_picture) : null,
+                    'date_of_birth' => $user->date_of_birth,
+                    'user_type' => $user->user_type,
+                    'status' => $user->status,
+                    'is_profile_complete' => $user->isProfileComplete(),
+                    'is_approved' => $user->status === 'approved'
+                ],
+                'token' => $token,
+                'token_type' => 'Bearer'
+            ]
+        ]);
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $e->errors()
+        ], 422);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred during login'
+        ], 500);
+    }
+}
 
 
     public function logout(Request $request)
-    {
-        try {
+{
+    try {
+        $user = $request->user();
 
-            $request->user()->currentAccessToken()->delete();
+        $user->tokens()->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Logged out successfully'
-            ]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully'
+        ]);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred during logout'
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred during logout'
+        ], 500);
     }
-
+}
     public function user(Request $request)
     {
         $user = $request->user();

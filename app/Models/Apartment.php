@@ -9,19 +9,17 @@ class Apartment extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'owner_id', 'title', 'description', 'address', 'city', 'region',
-        'latitude', 'longitude', 'price_per_night', 'number_of_rooms',
-          'area',
-        'is_available', 'approved_by_admin'
-    ];
+   protected $fillable = [
+    'owner_id', 'title', 'description', 'address', 'city', 'region',
+    'price_per_night', 'number_of_rooms', 'number_of_bathrooms', 'area',
+    'is_available', 'approved_by_admin'
+];
 
-    protected $casts = [
-        'is_available' => 'boolean',
-        'approved_by_admin' => 'boolean',
-        'price_per_night' => 'decimal:2'
-    ];
-
+protected $casts = [
+    'is_available' => 'boolean',
+    'approved_by_admin' => 'boolean',
+    'price_per_night' => 'decimal:2'
+];
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');

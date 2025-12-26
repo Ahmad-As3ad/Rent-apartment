@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Apartment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ApartmentController extends Controller
 {
@@ -67,7 +68,7 @@ class ApartmentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'The apartments were successfully purchased',
+                'message' => 'Apartments retrieved successfully',
                 'data' => $apartments,
                 'filters' => $appliedFilters,
                 'meta' => [
@@ -81,11 +82,248 @@ class ApartmentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' =>'Failed to bring apartments'
+                'message' => 'Failed to retrieve apartments'
             ], 500);
         }
     }
 
+    public function myApartments(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $query = Apartment::where('owner_id', $user->id)
+                ->with(['primaryImage', 'images'])
+                ->latest();
+
+            $perPage = $request->input('per_page', 10);
+            $apartments = $query->paginate($perPage);
+
+            $apartments->getCollection()->transform(function ($apartment) {
+                return $this->transformApartment($apartment, true);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Your apartments retrieved successfully',
+                'data' => $apartments,
+                'meta' => [
+                    'total' => $apartments->total(),
+                    'current_page' => $apartments->currentPage(),
+                    'last_page' => $apartments->lastPage(),
+                    'per_page' => $apartments->perPage(),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve your apartments'
+            ], 500);
+        }
+    }
+
+/**
+ * Create a new apartment
+ */
+public function store(Request $request)
+{
+    try {
+        // Get authenticated user
+        $user = Auth::user();
+
+        // Check if user exists
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ], 401);
+        }
+
+        // Check if user is an owner
+        if (!$user->isOwner()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only property owners can create apartments'
+            ], 403);
+        }
+if (!$user->canAddApartments()) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Your account must be approved by administration to add apartments'
+    ], 403);
+}
+        // Check if user profile is complete
+        if (!$user->isProfileComplete()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please complete your profile before adding apartments',
+                'profile_incomplete' => true
+            ], 403);
+        }
+
+        // Validate input data
+        $validatedData = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string|min:50',
+            'address' => 'required|string|max:500',
+            'city' => 'required|string|max:100',
+            'region' => 'required|string|max:100',
+            'price_per_night' => 'required|numeric|min:0|max:999999.99',
+            'number_of_rooms' => 'required|integer|min:1|max:20',
+            'number_of_bathrooms' => 'required|integer|min:1|max:10', // إضافة عدد الحمامات
+            'area' => 'required|numeric|min:10|max:10000' // إضافة المساحة
+        ]);
+
+        // Create apartment with owner_id from authenticated user
+        $apartment = Apartment::create([
+            'owner_id' => $user->id,
+            'title' => $validatedData['title'],
+            'description' => $validatedData['description'],
+            'address' => $validatedData['address'],
+            'city' => $validatedData['city'],
+            'region' => $validatedData['region'],
+            'price_per_night' => $validatedData['price_per_night'],
+            'number_of_rooms' => $validatedData['number_of_rooms'],
+            'number_of_bathrooms' => $validatedData['number_of_bathrooms'], // حفظ عدد الحمامات
+            'area' => $validatedData['area'], // حفظ المساحة
+            'is_available' => true,
+            'approved_by_admin' => false
+        ]);
+
+        // Load relationships
+        $apartment->load(['images', 'owner']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Apartment created successfully and awaiting admin approval',
+            'data' => $this->transformApartment($apartment, true)
+        ], 201);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create apartment'
+        ], 500);
+    }
+}
+  /**
+ * Update an apartment
+ */
+public function update(Request $request, $id)
+{
+    try {
+        $user = Auth::user();
+
+        // Find the apartment
+        $apartment = Apartment::find($id);
+
+        if (!$apartment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apartment not found'
+            ], 404);
+        }
+
+        // Check if user is authorized to update this apartment
+        if (!$apartment->isOwnedBy($user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to update this apartment'
+            ], 403);
+        }
+
+        // Validate input data
+        $validatedData = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string|min:50',
+            'address' => 'sometimes|required|string|max:500',
+            'city' => 'sometimes|required|string|max:100',
+            'region' => 'sometimes|required|string|max:100',
+            'price_per_night' => 'sometimes|required|numeric|min:0|max:999999.99',
+            'number_of_rooms' => 'sometimes|required|integer|min:1|max:20',
+            'number_of_bathrooms' => 'sometimes|required|integer|min:1|max:10', // إضافة
+            'area' => 'sometimes|required|numeric|min:10|max:10000', // إضافة
+            'is_available' => 'sometimes|boolean'
+        ]);
+
+        // Update apartment data
+        $apartment->update($validatedData);
+
+        // Reset admin approval if data was changed
+        if ($apartment->wasChanged() && $apartment->approved_by_admin) {
+            $apartment->update(['approved_by_admin' => false]);
+        }
+
+        // Load relationships
+        $apartment->load(['images', 'owner']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Apartment updated successfully',
+            'data' => $this->transformApartment($apartment, true)
+        ]);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update apartment'
+        ], 500);
+    }
+}
+    public function destroy($id)
+    {
+        try {
+            $user = Auth::user();
+            $apartment = Apartment::find($id);
+
+            if (!$apartment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Apartment not found'
+                ], 404);
+            }
+
+            if (!$user || $apartment->owner_id != $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to delete this apartment'
+                ], 403);
+            }
+
+            $apartment->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Apartment deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete apartment'
+            ], 500);
+        }
+    }
 
     public function show($id)
     {
@@ -127,14 +365,14 @@ class ApartmentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Cities have been successfully brought in',
+                'message' => 'Cities retrieved successfully',
                 'data' => $cities
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to bring cities'
+                'message' => 'Failed to retrieve cities'
             ], 500);
         }
     }
@@ -157,7 +395,7 @@ class ApartmentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to bring the price range'
+                'message' => 'Failed to retrieve price range'
             ], 500);
         }
     }
@@ -174,70 +412,56 @@ class ApartmentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Room options have been retrieved successfully',
+                'message' => 'Room options retrieved successfully',
                 'data' => $roomsOptions
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to bring room options'
+                'message' => 'Failed to retrieve room options'
             ], 500);
         }
     }
 
+   private function transformApartment($apartment, $fullDetails = false)
+{
+    $data = [
+        'id' => $apartment->id,
+        'title' => $apartment->title,
+        'description' => $apartment->description,
+        'address' => $apartment->address,
+        'city' => $apartment->city,
+        'region' => $apartment->region,
+        'full_address' => $apartment->full_address,
+        'price_per_night' => (float) $apartment->price_per_night,
+        'formatted_price' => $apartment->formatted_price,
+        'number_of_rooms' => $apartment->number_of_rooms,
+        'number_of_bathrooms' => $apartment->number_of_bathrooms, // إضافة
+        'area' => $apartment->area, // إضافة
+        'is_available' => (bool) $apartment->is_available,
+        'approved_by_admin' => isset($apartment->approved_by_admin) ? (bool) $apartment->approved_by_admin : null,
+        'created_at' => $apartment->created_at->format('Y-m-d H:i:s'),
+        'updated_at' => $apartment->updated_at->format('Y-m-d H:i:s'),
+        'owner' => $apartment->owner ? [
+            'id' => $apartment->owner->id,
+            'name' => $apartment->owner->first_name . ' ' . $apartment->owner->last_name
+        ] : null
+    ];
 
-    private function transformApartment($apartment, $fullDetails = false)
-    {
-        $data = [
-            'id' => $apartment->id,
-            'title' => $apartment->title,
-            'description' => $apartment->description,
-            'address' => $apartment->address,
-            'city' => $apartment->city,
-            'region' => $apartment->region,
-            'full_address' => $apartment->full_address,
-            'price_per_night' => (float) $apartment->price_per_night,
-            'formatted_price' => $apartment->formatted_price,
-            'number_of_rooms' => $apartment->number_of_rooms,
-            'area' => $apartment->area,
-            'is_available' => (bool) $apartment->is_available,
-            'created_at' => $apartment->created_at->format('Y-m-d H:i:s'),
-            'updated_at' => $apartment->updated_at->format('Y-m-d H:i:s'),
-            'owner' => $apartment->owner ? [
-                'id' => $apartment->owner->id,
-                'name' => $apartment->owner->first_name . ' ' . $apartment->owner->last_name
-            ] : null
-        ];
-
-        if ($apartment->primaryImage) {
-            $data['primary_image'] = $apartment->primaryImage->image_url;
-        }
-
-        if ($fullDetails && $apartment->images) {
-            $data['images'] = $apartment->images->map(function ($image) {
-                return [
-                    'id' => $image->id,
-                    'url' => $image->image_url,
-                    'is_primary' => (bool) $image->is_primary
-                ];
-            });
-
-            if ($apartment->latitude && $apartment->longitude) {
-                $data['location'] = [
-                    'latitude' => (float) $apartment->latitude,
-                    'longitude' => (float) $apartment->longitude
-                ];
-            }
-
-            $data['amenities'] = [
-                'has_kitchen' => (bool) $apartment->has_kitchen,
-                'has_air_conditioning' => (bool) $apartment->has_air_conditioning,
-                'has_wifi' => (bool) $apartment->has_wifi,
-                'has_parking' => (bool) $apartment->has_parking
-            ];
-        }
-
-        return $data;
+    if ($apartment->primaryImage) {
+        $data['primary_image'] = $apartment->primaryImage->image_url;
     }
-}
+
+    if ($fullDetails && $apartment->images) {
+        $data['images'] = $apartment->images->map(function ($image) {
+            return [
+                'id' => $image->id,
+                'url' => $image->image_url,
+                'is_primary' => (bool) $image->is_primary
+            ];
+        });
+    }
+
+    return $data;
+}}

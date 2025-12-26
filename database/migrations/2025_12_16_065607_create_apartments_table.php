@@ -23,9 +23,9 @@ return new class extends Migration
             $table->integer('area')->nullable()->comment('Area in square meters');
             $table->boolean('is_available')->default(true);
             $table->boolean('approved_by_admin')->default(false);
+            $table->integer('number_of_bathrooms')->after('number_of_rooms')->default(1);
+            $table->integer('area')->after('number_of_bathrooms')->nullable()->comment('Area in square meters');
             $table->timestamps();
-
-            // Indexes for better performance
             $table->index(['city', 'is_available', 'approved_by_admin']);
             $table->index(['price_per_night', 'is_available']);
             $table->index(['owner_id', 'is_available']);
