@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('phone_number')->unique();
+            $table->string('password');
             $table->timestamp('phone_verified_at')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
@@ -23,10 +24,21 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
         });
+            Schema::table('users', function (Blueprint $table) {
+        $table->enum('status', ['pending', 'approved', 'rejected', 'suspended'])->default('pending')->change();
+
+        $table->timestamp('reviewed_at')->nullable()->after('profile_completed_at');
+        $table->text('admin_notes')->nullable()->after('reviewed_at');
+        $table->foreignId('reviewed_by')->nullable()->after('admin_notes')->constrained('users')->onDelete('set null');
+    });
     }
 
     public function down(): void
     {
         Schema::dropIfExists('users');
+          Schema::table('users', function (Blueprint $table) {
+        $table->dropColumn(['reviewed_at', 'admin_notes', 'reviewed_by']);
+        $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->change();
+    });
     }
 };

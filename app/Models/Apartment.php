@@ -9,45 +9,17 @@ class Apartment extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'owner_id',
-        'title',
-        'description',
-        'address',
-        'city',
-        'region',
-        'latitude',
-        'longitude',
-        'price_per_night',
-        'number_of_rooms',
-        'number_of_bathrooms',
-        'has_kitchen',
-        'has_air_conditioning',
-        'has_wifi',
-        'has_parking',
-        'has_washer',
-        'has_tv',
-        'max_guests',
-        'area',
-        'is_available',
-        'approved_by_admin'
-    ];
+   protected $fillable = [
+    'owner_id', 'title', 'description', 'address', 'city', 'region',
+    'price_per_night', 'number_of_rooms', 'number_of_bathrooms', 'area',
+    'is_available', 'approved_by_admin'
+];
 
-    protected $casts = [
-        'has_kitchen' => 'boolean',
-        'has_air_conditioning' => 'boolean',
-        'has_wifi' => 'boolean',
-        'has_parking' => 'boolean',
-        'has_washer' => 'boolean',
-        'has_tv' => 'boolean',
-        'is_available' => 'boolean',
-        'approved_by_admin' => 'boolean',
-        'price_per_night' => 'decimal:2',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8'
-    ];
-
-
+protected $casts = [
+    'is_available' => 'boolean',
+    'approved_by_admin' => 'boolean',
+    'price_per_night' => 'decimal:2'
+];
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
@@ -63,7 +35,6 @@ class Apartment extends Model
         return $this->hasOne(ApartmentImage::class)->where('is_primary', true);
     }
 
-
     public function scopeAvailable($query)
     {
         return $query->where('is_available', true)
@@ -73,28 +44,8 @@ class Apartment extends Model
 
     public function scopeByCity($query, $city)
     {
-        if ($city) {
-            return $query->where('city', $city);
-        }
-        return $query;
-    }
-
-    public function scopeByRegion($query, $region)
-    {
-        if ($region) {
-            return $query->where('region', $region);
-        }
-        return $query;
-    }
-
-    public function scopePriceRange($query, $minPrice, $maxPrice)
-    {
-        if ($minPrice && $maxPrice) {
-            return $query->whereBetween('price_per_night', [$minPrice, $maxPrice]);
-        } elseif ($minPrice) {
-            return $query->where('price_per_night', '>=', $minPrice);
-        } elseif ($maxPrice) {
-            return $query->where('price_per_night', '<=', $maxPrice);
+        if ($city && $city != '') {
+            return $query->where('city', 'like', '%' . $city . '%');
         }
         return $query;
     }
@@ -102,26 +53,37 @@ class Apartment extends Model
 
     public function scopeByRooms($query, $rooms)
     {
-        if ($rooms) {
+        if ($rooms && $rooms > 0) {
             return $query->where('number_of_rooms', '>=', $rooms);
         }
         return $query;
     }
 
 
-    public function scopeWithAmenities($query, $amenities)
+    public function scopeOrderByHighestPrice($query)
     {
-        if (!empty($amenities)) {
-            foreach ($amenities as $amenity) {
-                if (in_array($amenity, ['kitchen', 'air_conditioning', 'wifi', 'parking', 'washer', 'tv'])) {
-                    $column = 'has_' . $amenity;
-                    $query->where($column, true);
-                }
-            }
-        }
-        return $query;
+        return $query->orderBy('price_per_night', 'desc');
     }
 
+
+    public function scopeOrderByLowestPrice($query)
+    {
+        return $query->orderBy('price_per_night', 'asc');
+    }
+
+
+    public function scopePriceRange($query, $minPrice, $maxPrice)
+    {
+        if ($minPrice && $minPrice > 0) {
+            $query->where('price_per_night', '>=', $minPrice);
+        }
+
+        if ($maxPrice && $maxPrice > 0) {
+            $query->where('price_per_night', '<=', $maxPrice);
+        }
+
+        return $query;
+    }
 
     public function isOwnedBy($userId)
     {
@@ -131,11 +93,12 @@ class Apartment extends Model
 
     public function getFullAddressAttribute()
     {
-        return "{$this->address}, {$this->city}, {$this->region}";
+        return "{$this->address}, {$this->city}";
     }
+
 
     public function getFormattedPriceAttribute()
     {
-        return number_format($this->price_per_night, 2) . 'L.S/night';
+        return number_format($this->price_per_night, 2) . 'l.s/per night';
     }
 }

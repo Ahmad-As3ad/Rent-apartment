@@ -20,20 +20,12 @@ return new class extends Migration
             $table->decimal('longitude', 11, 8)->nullable();
             $table->decimal('price_per_night', 10, 2);
             $table->integer('number_of_rooms');
-            $table->integer('number_of_bathrooms');
-            $table->boolean('has_kitchen')->default(false);
-            $table->boolean('has_air_conditioning')->default(false);
-            $table->boolean('has_wifi')->default(false);
-            $table->boolean('has_parking')->default(false);
-            $table->boolean('has_washer')->default(false);
-            $table->boolean('has_tv')->default(false);
-            $table->integer('max_guests')->default(1);
             $table->integer('area')->nullable()->comment('Area in square meters');
             $table->boolean('is_available')->default(true);
             $table->boolean('approved_by_admin')->default(false);
+            $table->integer('number_of_bathrooms')->after('number_of_rooms')->default(1);
+            $table->integer('area')->after('number_of_bathrooms')->nullable()->comment('Area in square meters');
             $table->timestamps();
-
-            // Indexes for better performance
             $table->index(['city', 'is_available', 'approved_by_admin']);
             $table->index(['price_per_night', 'is_available']);
             $table->index(['owner_id', 'is_available']);
