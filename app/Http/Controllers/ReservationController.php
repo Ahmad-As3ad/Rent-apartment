@@ -103,7 +103,6 @@ class ReservationController extends Controller
             return response()->json(['success' => false, 'message' => 'Only approved reservations can be modified'], 422);
         }
 
-        // يمكنك منع وجود تعديل معلّق سابقًا
         if ($reservation->status === 'modified_pending') {
             return response()->json(['success' => false, 'message' => 'A modification request is already pending'], 409);
         }
@@ -113,7 +112,7 @@ class ReservationController extends Controller
             'new_start_date'      => $validated['new_start_date'],
             'new_end_date'        => $validated['new_end_date'],
             'modified_requested_at' => now(),
-            'notes'               => $validated['notes'] ?? $reservation->notes, // أو احفظها في حقل مستقل
+            'notes'               => $validated['notes'] ?? $reservation->notes,
         ]);
 
         return response()->json([
@@ -174,7 +173,7 @@ class ReservationController extends Controller
             'data' => $reservations
         ]);
     }
-   
+
 
 public function reject(Request $request, $id)
 {
@@ -185,7 +184,6 @@ public function reject(Request $request, $id)
             ->lockForUpdate()
             ->firstOrFail();
 
-        // تحقق أن المستخدم هو صاحب الشقة
         if ($reservation->apartment->owner_id !== $owner->id) {
             return response()->json([
                 'success' => false,
@@ -193,7 +191,6 @@ public function reject(Request $request, $id)
             ], 403);
         }
 
-        // الحجز لازم يكون pending أو modified_pending
         if (!in_array($reservation->status, ['pending','modified_pending'])) {
             return response()->json([
                 'success' => false,

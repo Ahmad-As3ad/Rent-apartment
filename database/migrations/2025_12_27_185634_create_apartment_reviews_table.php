@@ -16,11 +16,11 @@ return new class extends Migration
             $table->foreignId('reservation_id')->constrained()->cascadeOnDelete();
             $table->foreignId('apartment_id')->constrained()->cascadeOnDelete();
             $table->foreignId('tenant_id')->constrained('users')->cascadeOnDelete();
-            $table->tinyInteger('rating'); // من 1 إلى 5
+            $table->tinyInteger('rating');
             $table->text('comment')->nullable();
             $table->timestamps();
 
-            $table->unique('reservation_id'); // تقييم واحد فقط لكل حجز
+            $table->unique('reservation_id');
         });
     }
 

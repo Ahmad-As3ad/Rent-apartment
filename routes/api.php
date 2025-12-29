@@ -9,9 +9,13 @@ use App\Http\Controllers\ApartmentReviewController;
 use App\Http\Controllers\ReservationController;
 
 
+
+
+// Authentication routes
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
+//  فلترة
 Route::prefix('apartments')->group(function () {
     Route::get('/', [ApartmentController::class, 'index']);
     Route::get('/{id}', [ApartmentController::class, 'show']);
@@ -20,30 +24,57 @@ Route::prefix('apartments')->group(function () {
     Route::get('/rooms-options', [ApartmentController::class, 'getRoomsOptions']);
 });
 
+// PROTECTED ROUTES (Authentication required)
+
 Route::middleware('auth:sanctum')->group(function () {
+    // Basic authentication routes
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('profile/update', [ProfileController::class, 'updateProfile']);
 });
 
+
+// PROTECTED ROUTES WITH COMPLETE PROFILE
+
 Route::middleware(['auth:sanctum', 'user.status', 'profile.complete'])->group(function () {
 
-<<<<<<< HEAD
-    Route::middleware(['user.status', 'profile.complete'])->group(function () {
-        Route::get('user', [AuthController::class, 'user']);
-=======
+    // Get current user info
     Route::get('user', [AuthController::class, 'user']);
 
+    // Apartment management routes
     Route::prefix('apartments')->group(function () {
-
         Route::get('/my/list', [ApartmentController::class, 'myApartments']);
-
         Route::post('/', [ApartmentController::class, 'store']);
         Route::put('/{id}', [ApartmentController::class, 'update']);
         Route::delete('/{id}', [ApartmentController::class, 'destroy']);
     });
+
+    // Reservation routes (for tenants and owners)
+    Route::prefix('reservations')->group(function () {
+        // Create new reservation (tenant only)
+        Route::post('/', [ReservationController::class, 'store']);
+
+        // Get user's reservations (tenant only)
+        Route::get('/my', [ReservationController::class, 'myReservations']);
+
+        // Reservation actions
+        Route::post('/{id}/cancel', [ReservationController::class, 'cancel']);
+        Route::post('/{id}/modify', [ReservationController::class, 'modify']);
+        Route::post('/{id}/review', [ApartmentReviewController::class, 'review']);
+    });
+
+    // Apartment reservations for owners
+    Route::prefix('apartments/{id}/reservations')->group(function () {
+        Route::get('/', [ReservationController::class, 'apartmentReservations']);
+        Route::post('/{reservation_id}/approve', [ReservationController::class, 'approve']);
+        Route::post('/{reservation_id}/reject', [ReservationController::class, 'reject']);
+    });
 });
+
+// ADMIN ROUTES
+
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
 
+    // User management
     Route::prefix('users')->group(function () {
         Route::get('/', [AdminController::class, 'getUsersForReview']);
         Route::get('/{id}', [AdminController::class, 'getUserDetails']);
@@ -52,33 +83,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::post('/{id}/suspend', [AdminController::class, 'suspendUser']);
     });
 
+    // Apartment management
     Route::prefix('apartments')->group(function () {
         Route::get('/pending', [AdminController::class, 'manageApartments']);
         Route::post('/{id}/approve', [AdminController::class, 'approveApartment']);
         Route::post('/{id}/reject', [AdminController::class, 'rejectApartment']);
->>>>>>> c6a913574c8c587b66545776dff5b02ffc1d25c2
     });
-
-    // إنشاء طلب حجز جديد (مستأجر)
-    Route::post('/reservations', [ReservationController::class, 'store']);
-
-    // موافقة صاحب الشقة على الحجز
-    Route::post('/reservations/{id}/approve', [ReservationController::class, 'approve']);
-
-    // إلغاء الحجز (مستأجر)
-    Route::post('/reservations/{id}/cancel', [ReservationController::class, 'cancel']);
-
-    // استعراض حجوزات المستخدم (مستأجر)
-    Route::get('/reservations/my', [ReservationController::class, 'myReservations']);
-
-    // استعراض الحجوزات الخاصة بالشقة (صاحب الشقة)
-    Route::get('/apartments/{id}/reservations', [ReservationController::class, 'apartmentReservations']);
-
-    // طلب تعديل الحجز (مستأجر)
-    Route::post('/reservations/{id}/modify', [ReservationController::class, 'modify']);
-
-    Route::post('/reservations/{id}/review', [ApartmentReviewController::class, 'review']);
-
-    Route::post('/reservations/{id}/reject', [ReservationController::class, 'reject']);
-
 });
