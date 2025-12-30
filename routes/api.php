@@ -72,7 +72,8 @@ Route::middleware(['auth:sanctum', 'user.status', 'profile.complete'])->group(fu
 
 // ADMIN ROUTES
 
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
+{
 
     // User management
     Route::prefix('users')->group(function () {

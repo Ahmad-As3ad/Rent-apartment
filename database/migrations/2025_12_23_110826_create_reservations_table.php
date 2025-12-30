@@ -23,12 +23,17 @@ return new class extends Migration
             $table->timestamp('canceled_at')->nullable();
             $table->timestamp('rejected_at')->nullable();
             $table->text('notes')->nullable();
+
+            // الحقول الجديدة بدون after()
+            $table->dateTime('new_start_date')->nullable();
+            $table->dateTime('new_end_date')->nullable();
+            $table->timestamp('modified_requested_at')->nullable();
+            $table->timestamp('approved_revalidated_at')->nullable();
+
             $table->timestamps();
+
+            // الفهارس
             $table->index(['apartment_id', 'start_date', 'end_date', 'status']);
-            $table->dateTime('new_start_date')->nullable()->after('end_date');
-            $table->dateTime('new_end_date')->nullable()->after('new_start_date');
-            $table->timestamp('modified_requested_at')->nullable()->after('rejected_at');
-            $table->timestamp('approved_revalidated_at')->nullable()->after('approved_at');
         });
     }
 
