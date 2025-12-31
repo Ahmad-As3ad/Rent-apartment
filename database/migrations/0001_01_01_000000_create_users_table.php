@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('profile_picture')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('id_card_picture')->nullable();
-            $table->enum('user_type', ['owner', 'tenant'])->default('tenant');
+            $table->enum('user_type', ['owner', 'tenant', 'admin'])->default('tenant');
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->timestamp('profile_completed_at')->nullable();
             $table->rememberToken();
