@@ -15,47 +15,67 @@ class AdminController extends Controller
     }
 
 
-    public function getUsersForReview(Request $request)
-    {
-        try {
-            $perPage = $request->input('per_page', 10);
+   /**
+ * عرض قائمة المستخدمين للمراجعة
+ */
+public function getUsersForReview(Request $request)
+{
+    try {
+        $perPage = $request->input('per_page', 10);
 
-            $query = User::with(['reviewer'])
-                ->latest();
+        $query = User::query();
 
-            if ($request->has('user_type')) {
-                $query->where('user_type', $request->user_type);
-            }
-
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
-            }
-
-            $users = $query->paginate($perPage);
-
-            $users->getCollection()->transform(function ($user) {
-                return $this->transformUserForAdmin($user);
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Users retrieved successfully',
-                'data' => $users,
-                'meta' => [
-                    'total' => $users->total(),
-                    'current_page' => $users->currentPage(),
-                    'last_page' => $users->lastPage(),
-                    'per_page' => $users->perPage(),
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve users'
-            ], 500);
+        // فلترة حسب النوع
+        if ($request->has('user_type') && $request->user_type != '') {
+            $query->where('user_type', $request->user_type);
         }
+
+        // فلترة حسب الحالة
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        $users = $query->latest()->paginate($perPage);
+
+        $users->getCollection()->transform(function ($user) {
+            return [
+                'id' => $user->id,
+                'phone_number' => $user->phone_number,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'full_name' => trim($user->first_name . ' ' . $user->last_name),
+                'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
+                'date_of_birth' => $user->date_of_birth,
+                'user_type' => $user->user_type,
+                'status' => $user->status,
+                'profile_completed_at' => $user->profile_completed_at,
+                'is_profile_complete' => $user->isProfileComplete(),
+                'is_approved' => $user->status === 'approved',
+                'created_at' => $user->created_at->format('Y-m-d H:i:s'),
+                'reviewed_at' => $user->reviewed_at ? $user->reviewed_at->format('Y-m-d H:i:s') : null,
+                'admin_notes' => $user->admin_notes
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Users retrieved successfully',
+            'data' => $users,
+            'meta' => [
+                'total' => $users->total(),
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to retrieve users'
+        ], 500);
     }
+}
     public function getUserDetails($id)
     {
         try {

@@ -35,7 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // PROTECTED ROUTES WITH COMPLETE PROFILE
 
-Route::middleware(['auth:sanctum', 'user.status', 'profile.complete'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
 
     // Get current user info
     Route::get('user', [AuthController::class, 'user']);
@@ -72,8 +72,8 @@ Route::middleware(['auth:sanctum', 'user.status', 'profile.complete'])->group(fu
 
 // ADMIN ROUTES
 
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
-{
+Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
+
 
     // User management
     Route::prefix('users')->group(function () {

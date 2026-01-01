@@ -131,9 +131,13 @@ class ApartmentController extends Controller
     }
 
 
+/**
+ * إنشاء شقة جديدة
+ */
 public function store(Request $request)
 {
     try {
+        // التحقق من المستخدم المسجل
         $user = Auth::user();
 
         if (!$user) {
@@ -143,38 +147,36 @@ public function store(Request $request)
             ], 401);
         }
 
+        // التحقق من أن المستخدم مالك
         if (!$user->isOwner()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only property owners can create apartments'
             ], 403);
         }
-if (!$user->canAddApartments()) {
-    return response()->json([
-        'success' => false,
-        'message' => 'Your account must be approved by administration to add apartments'
-    ], 403);
-}
+
+        // التحقق من اكتمال الملف الشخصي
         if (!$user->isProfileComplete()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Please complete your profile before adding apartments',
-                'profile_incomplete' => true
+                'message' => 'Please complete your profile before adding apartments'
             ], 403);
         }
 
+        // التحقق من البيانات المدخلة
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'required|string|min:50',
+            'description' => 'required|string|min:10',
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',
             'region' => 'required|string|max:100',
-            'price_per_night' => 'required|numeric|min:0|max:999999.99',
+            'price_per_night' => 'required|numeric|min:1|max:1000000',
             'number_of_rooms' => 'required|integer|min:1|max:20',
             'number_of_bathrooms' => 'required|integer|min:1|max:10',
-            'area' => 'required|numeric|min:10|max:10000'
+            'area' => 'required|numeric|min:10|max:5000'
         ]);
 
+        // إنشاء الشقة
         $apartment = Apartment::create([
             'owner_id' => $user->id,
             'title' => $validatedData['title'],
@@ -190,12 +192,10 @@ if (!$user->canAddApartments()) {
             'approved_by_admin' => false
         ]);
 
-        $apartment->load(relations: ['images', 'owner']);
-
         return response()->json([
             'success' => true,
             'message' => 'Apartment created successfully and awaiting admin approval',
-            'data' => $this->transformApartment($apartment, true)
+            'data' => $this->transformApartment($apartment)
         ], 201);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
@@ -211,7 +211,6 @@ if (!$user->canAddApartments()) {
         ], 500);
     }
 }
-
 public function update(Request $request, $id)
 {
     try {
