@@ -38,7 +38,6 @@ return new class extends Migration
         Schema::dropIfExists('users');
           Schema::table('users', function (Blueprint $table) {
         $table->dropColumn(['reviewed_at', 'admin_notes', 'reviewed_by']);
-        $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->change();
-    });
+$table->enum('status', ['pending', 'approved', 'rejected', 'suspended'])->default('pending');    });
     }
 };

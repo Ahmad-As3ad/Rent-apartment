@@ -208,53 +208,70 @@ public function getUsersForReview(Request $request)
     }
 
 
-    public function suspendUser(Request $request, $id)
-    {
-        try {
-            $admin = $request->user();
-            $user = User::find($id);
+   /**
+ * تعليق مستخدم
+ */
+public function suspendUser(Request $request, $id)
+{
+    try {
+        $admin = $request->user();
 
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not found'
-                ], 404);
-            }
-
-            $validated = $request->validate([
-                'notes' => 'required|string|max:500',
-                'reason' => 'required|string|max:255',
-                'suspension_days' => 'nullable|integer|min:1|max:365'
-            ]);
-
-            $user->update([
-                'status' => 'suspended',
-                'reviewed_at' => now(),
-                'reviewed_by' => $admin->id,
-                'admin_notes' => $validated['notes'] . ' | Reason: ' . $validated['reason'] .
-                               ' | Suspension days: ' . ($validated['suspension_days'] ?? 'indefinite')
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User suspended successfully',
-                'data' => $this->transformUserForAdmin($user)
-            ]);
-
-        } catch (ValidationException $e) {
+        // تحقق من أن المستخدم مدير
+        if ($admin->user_type !== 'admin') {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to suspend user'
-            ], 500);
+                'message' => 'Admin access required'
+            ], 403);
         }
-    }
 
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found'
+            ], 404);
+        }
+
+        // تحقق بسيط من البيانات
+        $validated = $request->validate([
+            'notes' => 'required|string',
+            'reason' => 'required|string'
+        ]);
+
+        // تحديث حالة المستخدم
+        $user->status = 'suspended';
+        $user->reviewed_at = now();
+        $user->reviewed_by = $admin->id;
+        $user->admin_notes = $validated['notes'] . ' - ' . $validated['reason'];
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User suspended successfully',
+            'data' => [
+                'id' => $user->id,
+                'phone_number' => $user->phone_number,
+                'name' => $user->first_name . ' ' . $user->last_name,
+                'status' => $user->status,
+                'admin_notes' => $user->admin_notes,
+                'reviewed_at' => $user->reviewed_at
+            ]
+        ]);
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Please provide notes and reason',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Operation failed'
+        ], 500);
+    }
+}
     public function manageApartments(Request $request)
     {
         try {
