@@ -41,7 +41,6 @@ class ReservationController extends Controller
         return DB::transaction(function () use ($id, $owner) {
             $reservation = Reservation::where('id', $id)->lockForUpdate()->firstOrFail();
 
-            // التحقق من أن المستخدم هو صاحب الشقة
             if ($reservation->apartment->owner_id !== $owner->id) {
                 return response()->json([
                     'success' => false,
@@ -49,7 +48,6 @@ class ReservationController extends Controller
                 ], 403);
             }
 
-            // التحقق من حالة الحجز
             $allowedStatuses = ['pending', 'modified_pending'];
 
             if (!in_array($reservation->status, $allowedStatuses)) {
@@ -60,7 +58,6 @@ class ReservationController extends Controller
                 ], 422);
             }
 
-            // التحقق من عدم تعارض التواريخ
             $overlap = Reservation::where('apartment_id', $reservation->apartment_id)
                 ->where('status', 'approved')
                 ->where('id', '!=', $reservation->id)
@@ -81,7 +78,6 @@ class ReservationController extends Controller
                 ], 409);
             }
 
-            // إذا كان حجز معدل، استخدم التواريخ الجديدة
             if ($reservation->status === 'modified_pending' && $reservation->new_start_date && $reservation->new_end_date) {
                 $reservation->update([
                     'status' => 'approved',

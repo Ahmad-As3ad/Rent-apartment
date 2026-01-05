@@ -15,9 +15,6 @@ class AdminController extends Controller
     }
 
 
-   /**
- * عرض قائمة المستخدمين للمراجعة
- */
 public function getUsersForReview(Request $request)
 {
     try {
@@ -25,12 +22,10 @@ public function getUsersForReview(Request $request)
 
         $query = User::query();
 
-        // فلترة حسب النوع
         if ($request->has('user_type') && $request->user_type != '') {
             $query->where('user_type', $request->user_type);
         }
 
-        // فلترة حسب الحالة
         if ($request->has('status') && $request->status != '') {
             $query->where('status', $request->status);
         }
@@ -208,15 +203,12 @@ public function getUsersForReview(Request $request)
     }
 
 
-   /**
- * تعليق مستخدم
- */
+
 public function suspendUser(Request $request, $id)
 {
     try {
         $admin = $request->user();
 
-        // تحقق من أن المستخدم مدير
         if ($admin->user_type !== 'admin') {
             return response()->json([
                 'success' => false,
@@ -233,13 +225,11 @@ public function suspendUser(Request $request, $id)
             ], 404);
         }
 
-        // تحقق بسيط من البيانات
         $validated = $request->validate([
             'notes' => 'required|string',
             'reason' => 'required|string'
         ]);
 
-        // تحديث حالة المستخدم
         $user->status = 'suspended';
         $user->reviewed_at = now();
         $user->reviewed_by = $admin->id;

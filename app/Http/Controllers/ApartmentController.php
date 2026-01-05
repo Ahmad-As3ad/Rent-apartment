@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Apartment;
+use App\Models\ApartmentImage;
+use Illuminate\Container\Attributes\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -131,13 +133,9 @@ class ApartmentController extends Controller
     }
 
 
-/**
- * إنشاء شقة جديدة
- */
 public function store(Request $request)
 {
     try {
-        // التحقق من المستخدم المسجل
         $user = Auth::user();
 
         if (!$user) {
@@ -147,7 +145,6 @@ public function store(Request $request)
             ], 401);
         }
 
-        // التحقق من أن المستخدم مالك
         if (!$user->isOwner()) {
             return response()->json([
                 'success' => false,
@@ -155,7 +152,6 @@ public function store(Request $request)
             ], 403);
         }
 
-        // التحقق من اكتمال الملف الشخصي
         if (!$user->isProfileComplete()) {
             return response()->json([
                 'success' => false,
@@ -163,7 +159,6 @@ public function store(Request $request)
             ], 403);
         }
 
-        // التحقق من البيانات المدخلة
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string|min:10',
@@ -173,10 +168,12 @@ public function store(Request $request)
             'price_per_night' => 'required|numeric|min:1|max:1000000',
             'number_of_rooms' => 'required|integer|min:1|max:20',
             'number_of_bathrooms' => 'required|integer|min:1|max:10',
-            'area' => 'required|numeric|min:10|max:5000'
+            'area' => 'required|numeric|min:10|max:5000',
+            'images' => 'nullable|array|max:10',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'primary_image_index' => 'nullable|integer|min:0'
         ]);
 
-        // إنشاء الشقة
         $apartment = Apartment::create([
             'owner_id' => $user->id,
             'title' => $validatedData['title'],
@@ -192,10 +189,27 @@ public function store(Request $request)
             'approved_by_admin' => false
         ]);
 
+        if ($request->hasFile('images')) {
+            $primaryImageIndex = $request->input('primary_image_index', 0);
+
+            foreach ($request->file('images') as $index => $image) {
+                $path = $image->store("apartments/{$apartment->id}", 'public');
+
+                ApartmentImage::create([
+                    'apartment_id' => $apartment->id,
+                    'image_path' => $path,
+                    'is_primary' => ($index == $primaryImageIndex),
+                    'order' => $index
+                ]);
+            }
+        }
+
+        $apartment->load(['images', 'owner']);
+
         return response()->json([
             'success' => true,
             'message' => 'Apartment created successfully and awaiting admin approval',
-            'data' => $this->transformApartment($apartment)
+            'data' => $this->transformApartment($apartment, true)
         ], 201);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
@@ -207,7 +221,7 @@ public function store(Request $request)
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Failed to create apartment'
+            'message' => 'Failed to create apartment: ' . $e->getMessage()
         ], 500);
     }
 }
@@ -407,6 +421,199 @@ public function update(Request $request, $id)
         }
     }
 
+public function addImages(Request $request, $id)
+{
+    try {
+        $user = Auth::user();
+        $apartment = Apartment::find($id);
+
+        if (!$apartment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apartment not found'
+            ], 404);
+        }
+
+        if (!$apartment->isOwnedBy($user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to add images to this apartment'
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'images' => 'required|array|max:10',
+            'images.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'set_as_primary' => 'nullable|boolean'
+        ]);
+
+        $uploadedImages = [];
+
+        $currentMaxOrder = ApartmentImage::where('apartment_id', $apartment->id)->max('order') ?? -1;
+
+        foreach ($request->file('images') as $index => $image) {
+            $path = $image->store("apartments/{$apartment->id}", 'public');
+
+            $apartmentImage = ApartmentImage::create([
+                'apartment_id' => $apartment->id,
+                'image_path' => $path,
+                'is_primary' => ($request->input('set_as_primary') && $index === 0) ? true : false,
+                'order' => $currentMaxOrder + $index + 1
+            ]);
+
+            $uploadedImages[] = $apartmentImage;
+        }
+
+        if ($request->input('set_as_primary') && count($uploadedImages) > 0) {
+            ApartmentImage::where('apartment_id', $apartment->id)
+                ->where('id', '!=', $uploadedImages[0]->id)
+                ->update(['is_primary' => false]);
+        }
+
+        $apartment->load('images');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Images added successfully',
+            'data' => [
+                'apartment_id' => $apartment->id,
+                'images_added' => count($uploadedImages),
+                'images' => $apartment->images->map(function ($image) {
+                    return [
+                        'id' => $image->id,
+                        'url' => $image->image_url,
+                        'is_primary' => (bool) $image->is_primary,
+                        'order' => $image->order
+                    ];
+                })
+            ]
+        ]);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to add images: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+public function setPrimaryImage(Request $request, $apartmentId, $imageId)
+{
+    try {
+        $user = Auth::user();
+        $apartment = Apartment::find($apartmentId);
+
+        if (!$apartment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apartment not found'
+            ], 404);
+        }
+
+        if (!$apartment->isOwnedBy($user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to modify this apartment'
+            ], 403);
+        }
+
+        $image = ApartmentImage::where('apartment_id', $apartmentId)
+            ->where('id', $imageId)
+            ->first();
+
+        if (!$image) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image not found'
+            ], 404);
+        }
+
+        ApartmentImage::where('apartment_id', $apartmentId)
+            ->update(['is_primary' => false]);
+
+        $image->update(['is_primary' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Primary image updated successfully',
+            'data' => [
+                'image_id' => $image->id,
+                'is_primary' => true,
+                'image_url' => $image->image_url
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to set primary image'
+        ], 500);
+    }
+}
+
+public function deleteImage(Request $request, $apartmentId, $imageId)
+{
+    try {
+        $user = Auth::user();
+        $apartment = Apartment::find($apartmentId);
+
+        if (!$apartment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apartment not found'
+            ], 404);
+        }
+
+        if (!$apartment->isOwnedBy($user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to modify this apartment'
+            ], 403);
+        }
+
+        $image = ApartmentImage::where('apartment_id', $apartmentId)
+            ->where('id', $imageId)
+            ->first();
+
+        if (!$image) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image not found'
+            ], 404);
+        }
+
+
+        $wasPrimary = $image->is_primary;
+
+        $image->delete();
+
+        if ($wasPrimary) {
+            $newPrimary = ApartmentImage::where('apartment_id', $apartmentId)
+                ->first();
+
+            if ($newPrimary) {
+                $newPrimary->update(['is_primary' => true]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image deleted successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to delete image: ' . $e->getMessage()
+        ], 500);
+    }
+}
    private function transformApartment($apartment, $fullDetails = false)
 {
     $data = [
@@ -420,8 +627,8 @@ public function update(Request $request, $id)
         'price_per_night' => (float) $apartment->price_per_night,
         'formatted_price' => $apartment->formatted_price,
         'number_of_rooms' => $apartment->number_of_rooms,
-        'number_of_bathrooms' => $apartment->number_of_bathrooms, // إضافة
-        'area' => $apartment->area, // إضافة
+        'number_of_bathrooms' => $apartment->number_of_bathrooms,
+        'area' => $apartment->area,
         'is_available' => (bool) $apartment->is_available,
         'approved_by_admin' => isset($apartment->approved_by_admin) ? (bool) $apartment->approved_by_admin : null,
         'created_at' => $apartment->created_at->format('Y-m-d H:i:s'),
@@ -441,9 +648,12 @@ public function update(Request $request, $id)
             return [
                 'id' => $image->id,
                 'url' => $image->image_url,
-                'is_primary' => (bool) $image->is_primary
+                'is_primary' => (bool) $image->is_primary,
+                'order' => $image->order
             ];
         });
+
+        $data['images_count'] = $apartment->images->count();
     }
 
     return $data;
