@@ -24,7 +24,6 @@ return new class extends Migration
             $table->timestamp('rejected_at')->nullable();
             $table->text('notes')->nullable();
 
-            // الحقول الجديدة بدون after()
             $table->dateTime('new_start_date')->nullable();
             $table->dateTime('new_end_date')->nullable();
             $table->timestamp('modified_requested_at')->nullable();
@@ -32,14 +31,11 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // الفهارس
             $table->index(['apartment_id', 'start_date', 'end_date', 'status']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+    
     public function down(): void
     {
         Schema::dropIfExists('reservations');

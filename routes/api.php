@@ -1,15 +1,14 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ApartmentController;
 use App\Http\Controllers\ApartmentReviewController;
 use App\Http\Controllers\ReservationController;
-
-
-
 
 // Authentication routes
 Route::post('register', [AuthController::class, 'register']);
@@ -32,7 +31,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('profile/update', [ProfileController::class, 'updateProfile']);
 });
 
-
 // PROTECTED ROUTES WITH COMPLETE PROFILE
 
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -46,6 +44,29 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/', [ApartmentController::class, 'store']);
         Route::put('/{id}', [ApartmentController::class, 'update']);
         Route::delete('/{id}', [ApartmentController::class, 'destroy']);
+
+        // Apartment images routes
+        Route::post('/{id}/images', [ApartmentController::class, 'addImages']);
+        Route::post('/{apartmentId}/images/{imageId}/set-primary', [ApartmentController::class, 'setPrimaryImage']);
+        Route::delete('/{apartmentId}/images/{imageId}', [ApartmentController::class, 'deleteImage']);
+    });
+
+    // Wishlist routes
+    Route::prefix('wishlist')->group(function () {
+        Route::post('/{apartment}', [WishlistController::class, 'add']);
+        Route::delete('/{apartment}', [WishlistController::class, 'remove']);
+        Route::get('/', [WishlistController::class, 'myWishlist']);
+        Route::get('/check/{apartment}', [WishlistController::class, 'checkInWishlist']);
+        Route::post('/{wishlist}/book', [WishlistController::class, 'bookFromWishlist']);
+    });
+
+    // Payment routes
+    Route::prefix('payments')->group(function () {
+        Route::post('/initiate/{reservation}', [PaymentController::class, 'initiatePayment']);
+        Route::post('/complete/{paymentId}', [PaymentController::class, 'completePayment']);
+        Route::get('/status/{paymentId}', [PaymentController::class, 'paymentStatus']);
+        Route::get('/my', [PaymentController::class, 'myPayments']);
+        Route::post('/simulate/{paymentId}', [PaymentController::class, 'simulatePayment']);
     });
 
     // Reservation routes (for tenants and owners)

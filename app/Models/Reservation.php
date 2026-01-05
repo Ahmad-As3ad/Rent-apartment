@@ -9,7 +9,7 @@ class Reservation extends Model
     protected $fillable = ['apartment_id', 'tenant_id', 'start_date', 'end_date',
     'status', 'total_price', 'approved_at', 'canceled_at', 'rejected_at', 'notes',
     'new_start_date','new_end_date','modified_requested_at','approved_revalidated_at'];
-   
+
 
     public function apartment()
     {
@@ -26,4 +26,23 @@ class Reservation extends Model
             $q->where('start_date', '<', $end)->where('end_date', '>', $start);
         });
     }
+    public function payment()
+{
+    return $this->hasOne(Payment::class);
+}
+
+public function isPaid()
+{
+    return $this->payment && $this->payment->isPaid();
+}
+
+public function getTotalPriceAttribute()
+{
+    if (!$this->start_date || !$this->end_date) {
+        return 0;
+    }
+
+    $days = $this->start_date->diffInDays($this->end_date);
+    return $days * $this->apartment->price_per_night;
+}
 }

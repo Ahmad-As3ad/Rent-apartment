@@ -9,30 +9,34 @@ use Illuminate\Support\Facades\DB;
 
 class ReservationController extends Controller
 {
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'apartment_id' => 'required|exists:apartments,id',
-            'start_date' => 'required|date|after:now',
-            'end_date' => 'required|date|after:start_date',
-            'notes' => 'nullable|string|max:500',
-        ]);
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'apartment_id' => 'required|exists:apartments,id',
+        'start_date' => 'required|date|after:now',
+        'end_date' => 'required|date|after:start_date',
+        'notes' => 'nullable|string|max:500',
+        'payment_method' => 'nullable|in:cash,card,wallet'
+    ]);
 
-        $reservation = Reservation::create([
-            'apartment_id' => $validated['apartment_id'],
-            'tenant_id' => $request->user()->id,
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'],
-            'status' => 'pending',
-            'notes' => $validated['notes'] ?? null,
-        ]);
+    $reservation = Reservation::create([
+        'apartment_id' => $validated['apartment_id'],
+        'tenant_id' => $request->user()->id,
+        'start_date' => $validated['start_date'],
+        'end_date' => $validated['end_date'],
+        'status' => 'pending',
+        'notes' => $validated['notes'] ?? null,
+    ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Reservation request created',
-            'data' => $reservation
-        ]);
+    if ($request->has('payment_method') && $request->payment_method !== 'cash') {
     }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Reservation request created',
+        'data' => $reservation
+    ]);
+}
    public function approve(Request $request, $id)
 {
     try {
